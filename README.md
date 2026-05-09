@@ -128,4 +128,3 @@ The iOS Simulator does not provide real Apple Health data. HealthSync includes a
 ## Disclaimer
 
 This app is a personal engineering project and is not intended for medical diagnosis, treatment, or emergency use.
-
