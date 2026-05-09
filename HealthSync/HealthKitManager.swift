@@ -2,7 +2,7 @@ import Foundation
 import HealthKit
 import Combine
 
-struct GlucoseReading: Identifiable {
+struct GlucoseReading: Identifiable, Sendable {
     let id = UUID()
     let value: Double
     let unit: String
@@ -10,7 +10,7 @@ struct GlucoseReading: Identifiable {
     let source: String
 }
 
-struct HealthMetric: Identifiable {
+struct HealthMetric: Identifiable, Sendable {
     let id = UUID()
     let type: String
     let value: Double
@@ -19,7 +19,7 @@ struct HealthMetric: Identifiable {
     let source: String
 }
 
-struct HealthSample: Codable {
+struct HealthSample: Codable, Sendable {
     let type: String
     let value: Double
     let unit: String
@@ -28,6 +28,21 @@ struct HealthSample: Codable {
     let source: String
     let localTimezone: String
     let metadata: [String: String]?
+}
+
+struct GlucoseTrendPrediction: Sendable {
+    enum Direction: Sendable {
+        case rising
+        case falling
+        case stable
+        case unavailable
+    }
+
+    let direction: Direction
+    let confidence: Double
+    let message: String
+    let rationale: String
+    let sampleCount: Int
 }
 
 @MainActor
@@ -41,6 +56,13 @@ class HealthKitManager: ObservableObject {
     @Published var latestSteps: HealthMetric?
     @Published var latestActiveEnergy: HealthMetric?
     @Published var latestWeight: HealthMetric?
+    @Published var glucoseTrendPrediction = GlucoseTrendPrediction(
+        direction: .unavailable,
+        confidence: 0,
+        message: "Waiting for glucose history",
+        rationale: "At least three recent glucose readings are needed to estimate a trend.",
+        sampleCount: 0
+    )
 
     var hasNoMetrics: Bool {
         latestGlucose == nil &&
@@ -128,6 +150,7 @@ class HealthKitManager: ObservableObject {
 
         fetchLatestGlucose()
         fetchLatestMetrics()
+        fetchGlucoseTrendPrediction()
     }
 
     func fetchLatestGlucose() {
@@ -156,6 +179,58 @@ class HealthKitManager: ObservableObject {
 
             Task { @MainActor in
                 self.latestGlucose = reading
+            }
+        }
+
+        healthStore.execute(query)
+    }
+
+    func fetchGlucoseTrendPrediction() {
+        guard let glucoseType = HKQuantityType.quantityType(forIdentifier: .bloodGlucose) else {
+            glucoseTrendPrediction = GlucoseTrendPrediction(
+                direction: .unavailable,
+                confidence: 0,
+                message: "Glucose prediction unavailable",
+                rationale: "Blood glucose is not available on this device.",
+                sampleCount: 0
+            )
+            return
+        }
+
+        let sortDescriptor = NSSortDescriptor(key: HKSampleSortIdentifierStartDate, ascending: false)
+        let query = HKSampleQuery(
+            sampleType: glucoseType,
+            predicate: nil,
+            limit: 5,
+            sortDescriptors: [sortDescriptor]
+        ) { [weak self] _, results, error in
+            guard error == nil, let samples = results as? [HKQuantitySample] else {
+                Task { @MainActor in
+                    self?.glucoseTrendPrediction = GlucoseTrendPrediction(
+                        direction: .unavailable,
+                        confidence: 0,
+                        message: "Glucose prediction unavailable",
+                        rationale: "Recent glucose readings could not be loaded.",
+                        sampleCount: 0
+                    )
+                }
+                return
+            }
+
+            let readings = samples
+                .map { sample in
+                    GlucoseReading(
+                        value: sample.quantity.doubleValue(for: HKUnit(from: "mg/dL")),
+                        unit: "mg/dL",
+                        date: sample.startDate,
+                        source: sample.sourceRevision.source.name
+                    )
+                }
+                .sorted { $0.date < $1.date }
+
+            let prediction = Self.makeGlucoseTrendPrediction(from: readings)
+            Task { @MainActor in
+                self?.glucoseTrendPrediction = prediction
             }
         }
 
@@ -426,6 +501,11 @@ class HealthKitManager: ObservableObject {
         healthKitStatusMessage = message.isEmpty ? "Showing simulator preview data." : message
 
         let now = Date()
+        let demoGlucoseReadings = [
+            GlucoseReading(value: 96, unit: "mg/dL", date: now.addingTimeInterval(-42 * 60), source: "Preview"),
+            GlucoseReading(value: 100, unit: "mg/dL", date: now.addingTimeInterval(-30 * 60), source: "Preview"),
+            GlucoseReading(value: 104, unit: "mg/dL", date: now.addingTimeInterval(-12 * 60), source: "Preview")
+        ]
         latestGlucose = GlucoseReading(
             value: 104,
             unit: "mg/dL",
@@ -460,5 +540,51 @@ class HealthKitManager: ObservableObject {
             date: now.addingTimeInterval(-3 * 60 * 60),
             source: "Preview"
         )
+        glucoseTrendPrediction = Self.makeGlucoseTrendPrediction(from: demoGlucoseReadings)
+    }
+
+    private nonisolated static func makeGlucoseTrendPrediction(from readings: [GlucoseReading]) -> GlucoseTrendPrediction {
+        guard readings.count >= 3, let first = readings.first, let last = readings.last else {
+            return GlucoseTrendPrediction(
+                direction: .unavailable,
+                confidence: 0,
+                message: "Prediction needs more data",
+                rationale: "At least three recent glucose readings are needed to estimate a trend.",
+                sampleCount: readings.count
+            )
+        }
+
+        let minutes = max(last.date.timeIntervalSince(first.date) / 60, 1)
+        let change = last.value - first.value
+        let ratePerHour = change / minutes * 60
+        let absoluteRate = abs(ratePerHour)
+        let confidence = min(max(absoluteRate / 30, 0.35), 0.92)
+
+        switch ratePerHour {
+        case 12...:
+            return GlucoseTrendPrediction(
+                direction: .rising,
+                confidence: confidence,
+                message: "Likely rising",
+                rationale: "Recent readings increased by \(Int(change.rounded())) mg/dL over \(Int(minutes.rounded())) minutes.",
+                sampleCount: readings.count
+            )
+        case ..<(-12):
+            return GlucoseTrendPrediction(
+                direction: .falling,
+                confidence: confidence,
+                message: "Likely falling",
+                rationale: "Recent readings dropped by \(Int(abs(change).rounded())) mg/dL over \(Int(minutes.rounded())) minutes.",
+                sampleCount: readings.count
+            )
+        default:
+            return GlucoseTrendPrediction(
+                direction: .stable,
+                confidence: max(0.55, 1 - absoluteRate / 30),
+                message: "Likely stable",
+                rationale: "Recent readings changed slowly, about \(Int(abs(ratePerHour).rounded())) mg/dL per hour.",
+                sampleCount: readings.count
+            )
+        }
     }
 }

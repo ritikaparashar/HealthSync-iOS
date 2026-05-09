@@ -1,6 +1,6 @@
 # HealthSync iOS
 
-HealthSync is a SwiftUI iOS app that turns Apple HealthKit data into a polished, sync-ready health dashboard. It reads personal health metrics such as glucose, heart rate, steps, active energy, and body mass, then sends recent samples to a configurable backend API.
+HealthSync is a SwiftUI iOS app that turns Apple HealthKit data into a polished, sync-ready health dashboard. It reads personal health metrics such as glucose, heart rate, steps, active energy, and body mass, estimates a recent glucose trend, then sends recent samples to a configurable backend API.
 
 Built by **Ritika Parashar** as a recruiter-facing iOS project focused on clean architecture, HealthKit integration, MVVM, background refresh, and thoughtful product design.
 
@@ -16,7 +16,8 @@ This project is especially useful for glucose and wellness tracking workflows, w
 
 - **HealthKit integration** for glucose, heart rate, steps, active energy, and body mass.
 - **MVVM architecture** with a dedicated `DashboardViewModel` coordinating UI state, settings, sync eligibility, and lifecycle events.
-- **Custom SwiftUI dashboard** with a glucose command dial, range indicator, readiness tiles, metric cards, and sync pipeline state.
+- **Custom SwiftUI dashboard** with a glucose command dial, range indicator, glucose forecast card, readiness tiles, metric cards, and sync pipeline state.
+- **Explainable glucose trend prediction** that uses recent glucose readings to label the near-term direction as likely rising, falling, stable, or unavailable.
 - **Simulator preview mode** with realistic demo data because HealthKit data is only available on real devices.
 - **Safe sync behavior** that prevents fake simulator data from being uploaded.
 - **Configurable backend sync** using API URL, API secret, and user ID.
@@ -57,8 +58,8 @@ Apple Health      Backend API
 ### Main Responsibilities
 
 - `ContentView.swift`: SwiftUI screen composition and reusable UI components.
-- `DashboardViewModel.swift`: Presentation state, settings persistence, sync eligibility, glucose status mapping, and lifecycle handling.
-- `HealthKitManager.swift`: HealthKit authorization, latest metric fetching, sample conversion, and simulator demo data.
+- `DashboardViewModel.swift`: Presentation state, settings persistence, sync eligibility, glucose status mapping, prediction presentation, and lifecycle handling.
+- `HealthKitManager.swift`: HealthKit authorization, latest metric fetching, glucose trend estimation, sample conversion, and simulator demo data.
 - `SyncManager.swift`: Sync request construction, URLSession networking, background refresh registration, and sync status.
 - `HealthSync.swift`: App entry point and scene phase forwarding.
 
@@ -69,6 +70,19 @@ Apple Health      Backend API
 - Step Count
 - Active Energy Burned, shown in `kcal`
 - Body Mass, shown in `kg`
+
+## Glucose Prediction
+
+HealthSync does not invent health data. It reads available blood glucose samples from Apple HealthKit, looks at the most recent readings, and calculates an explainable trend based on how quickly the values changed over time.
+
+The prediction is intentionally transparent:
+
+- **Likely rising** when recent readings are increasing quickly.
+- **Likely falling** when recent readings are decreasing quickly.
+- **Likely stable** when recent readings change slowly.
+- **Unavailable** when there are not enough recent samples.
+
+The app also shows the sample count, confidence, and rationale behind the forecast. This keeps the feature interview-friendly because it demonstrates product thinking, data handling, and safety without pretending to replace clinical judgement.
 
 ## How Sync Works
 
@@ -110,6 +124,7 @@ The iOS Simulator does not provide real Apple Health data. HealthSync includes a
 - Keeping SwiftUI views declarative and moving logic into the ViewModel.
 - Handling device-vs-simulator behavior cleanly.
 - Presenting health state in a way that is fast to scan.
+- Adding a transparent prediction layer without making unsafe medical claims.
 - Writing code that can be extended with testing, more metrics, charts, and secure storage.
 
 ## Future Improvements
@@ -117,6 +132,15 @@ The iOS Simulator does not provide real Apple Health data. HealthSync includes a
 - Add unit tests for `DashboardViewModel`.
 - Store API secrets in Keychain instead of UserDefaults.
 - Add trend charts for glucose and heart rate.
+- Replace the rule-based forecast with an on-device Core ML model after collecting enough labeled historical data.
 - Add offline retry queue for failed syncs.
 - Add protocol abstractions for easier service mocking.
 - Add Apple Watch support for companion health summaries.
+
+## Interview Summary
+
+> HealthSync is a SwiftUI + HealthKit app that reads personal health metrics, displays them in a custom dashboard, estimates glucose direction from recent readings, and syncs recent samples to a backend API. I built it with MVVM: the view renders state, the ViewModel coordinates presentation and actions, and dedicated managers handle HealthKit, prediction logic, and networking. I also added simulator-safe preview data, background refresh support, and a polished recruiter-facing UI.
+
+## Disclaimer
+
+This app is a personal engineering project and is not intended for medical diagnosis, treatment, or emergency use.

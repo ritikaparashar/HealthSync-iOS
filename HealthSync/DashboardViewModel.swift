@@ -17,6 +17,13 @@ final class DashboardViewModel: ObservableObject {
     @Published private(set) var latestSteps: HealthMetric?
     @Published private(set) var latestActiveEnergy: HealthMetric?
     @Published private(set) var latestWeight: HealthMetric?
+    @Published private(set) var glucoseTrendPrediction = GlucoseTrendPrediction(
+        direction: .unavailable,
+        confidence: 0,
+        message: "Waiting for glucose history",
+        rationale: "At least three recent glucose readings are needed to estimate a trend.",
+        sampleCount: 0
+    )
 
     @Published private(set) var lastSyncDate: Date?
     @Published private(set) var syncStatus = ""
@@ -139,6 +146,56 @@ final class DashboardViewModel: ObservableObject {
         }
     }
 
+    var predictionTitle: String {
+        glucoseTrendPrediction.message
+    }
+
+    var predictionRationale: String {
+        glucoseTrendPrediction.rationale
+    }
+
+    var predictionConfidence: Double {
+        glucoseTrendPrediction.confidence
+    }
+
+    var predictionConfidenceText: String {
+        guard glucoseTrendPrediction.direction != .unavailable else {
+            return "Needs more data"
+        }
+
+        return "\(Int((glucoseTrendPrediction.confidence * 100).rounded()))% confidence"
+    }
+
+    var predictionSampleText: String {
+        "\(glucoseTrendPrediction.sampleCount) recent samples"
+    }
+
+    var predictionIcon: String {
+        switch glucoseTrendPrediction.direction {
+        case .rising:
+            return "arrow.up.right.circle.fill"
+        case .falling:
+            return "arrow.down.right.circle.fill"
+        case .stable:
+            return "equal.circle.fill"
+        case .unavailable:
+            return "questionmark.circle.fill"
+        }
+    }
+
+    var predictionTint: Color {
+        switch glucoseTrendPrediction.direction {
+        case .rising:
+            return .orange
+        case .falling:
+            return .blue
+        case .stable:
+            return .green
+        case .unavailable:
+            return .gray
+        }
+    }
+
     var syncButtonTitle: String {
         isSyncing ? "Syncing..." : "Sync Now"
     }
@@ -230,6 +287,7 @@ final class DashboardViewModel: ObservableObject {
         latestSteps = healthKitManager.latestSteps
         latestActiveEnergy = healthKitManager.latestActiveEnergy
         latestWeight = healthKitManager.latestWeight
+        glucoseTrendPrediction = healthKitManager.glucoseTrendPrediction
     }
 
     private func updateSyncState() {

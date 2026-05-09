@@ -9,6 +9,7 @@ struct ContentView: View {
                 VStack(spacing: 18) {
                     header
                     glucoseCommandCard
+                    predictionCard
                     readinessRail
                     metricsSection
                     actionPanel
@@ -57,36 +58,28 @@ struct ContentView: View {
 
     private var glucoseCommandCard: some View {
         VStack(spacing: 18) {
-            HStack(alignment: .top, spacing: 18) {
-                GlucoseDial(
-                    valueText: viewModel.glucoseSummary,
-                    stateText: viewModel.glucoseBandTitle,
-                    progress: viewModel.glucoseProgress,
-                    tint: viewModel.glucoseTint
-                )
-
-                VStack(alignment: .leading, spacing: 14) {
-                    StatusPill(
-                        title: viewModel.glucoseBandTitle,
-                        icon: "waveform.path.ecg",
-                        color: viewModel.glucoseTint
+            ViewThatFits(in: .horizontal) {
+                HStack(alignment: .center, spacing: 18) {
+                    GlucoseDial(
+                        valueText: viewModel.glucoseSummary,
+                        stateText: viewModel.glucoseBandTitle,
+                        progress: viewModel.glucoseProgress,
+                        tint: viewModel.glucoseTint
                     )
 
-                    VStack(alignment: .leading, spacing: 5) {
-                        Text("Metabolic Snapshot")
-                            .font(.title3.weight(.bold))
-                        Text(viewModel.glucoseBandDescription)
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-
-                    Text(viewModel.glucoseSubtitle)
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(.secondary)
-                        .padding(.top, 2)
+                    glucoseNarrative
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
+
+                VStack(spacing: 16) {
+                    GlucoseDial(
+                        valueText: viewModel.glucoseSummary,
+                        stateText: viewModel.glucoseBandTitle,
+                        progress: viewModel.glucoseProgress,
+                        tint: viewModel.glucoseTint
+                    )
+
+                    glucoseNarrative
+                }
             }
 
             GlucoseRangeTrack(progress: viewModel.glucoseProgress, tint: viewModel.glucoseTint)
@@ -108,6 +101,45 @@ struct ContentView: View {
         .overlay(
             RoundedRectangle(cornerRadius: 28, style: .continuous)
                 .stroke(.white.opacity(0.55), lineWidth: 1)
+        )
+    }
+
+    private var glucoseNarrative: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            StatusPill(
+                title: viewModel.glucoseBandTitle,
+                icon: "waveform.path.ecg",
+                color: viewModel.glucoseTint
+            )
+
+            VStack(alignment: .leading, spacing: 5) {
+                Text("Metabolic Snapshot")
+                    .font(.title3.weight(.bold))
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.78)
+                Text(viewModel.glucoseBandDescription)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Text(viewModel.glucoseSubtitle)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
+                .padding(.top, 2)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var predictionCard: some View {
+        PredictionInsightCard(
+            icon: viewModel.predictionIcon,
+            title: viewModel.predictionTitle,
+            confidenceText: viewModel.predictionConfidenceText,
+            sampleText: viewModel.predictionSampleText,
+            rationale: viewModel.predictionRationale,
+            tint: viewModel.predictionTint,
+            progress: viewModel.predictionConfidence
         )
     }
 
@@ -234,6 +266,89 @@ struct ContentView: View {
     }
 }
 
+struct PredictionInsightCard: View {
+    let icon: String
+    let title: String
+    let confidenceText: String
+    let sampleText: String
+    let rationale: String
+    let tint: Color
+    let progress: Double
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .top, spacing: 13) {
+                Image(systemName: icon)
+                    .font(.system(size: 28, weight: .bold))
+                    .foregroundStyle(tint)
+                    .frame(width: 50, height: 50)
+                    .background(tint.opacity(0.12), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+
+                VStack(alignment: .leading, spacing: 5) {
+                    Text("Glucose Forecast")
+                        .font(.caption.weight(.black))
+                        .foregroundStyle(.secondary)
+                        .textCase(.uppercase)
+                    Text(title)
+                        .font(.title3.weight(.heavy))
+                    Text(rationale)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                Spacer(minLength: 0)
+            }
+
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Text(confidenceText)
+                        .font(.caption.weight(.black))
+                    Spacer()
+                    Text(sampleText)
+                        .font(.caption.weight(.bold))
+                        .foregroundStyle(.secondary)
+                }
+
+                GeometryReader { proxy in
+                    let width = max(12, proxy.size.width * min(max(progress, 0.08), 1))
+
+                    ZStack(alignment: .leading) {
+                        RoundedRectangle(cornerRadius: 7, style: .continuous)
+                            .fill(.black.opacity(0.06))
+
+                        RoundedRectangle(cornerRadius: 7, style: .continuous)
+                            .fill(
+                                LinearGradient(
+                                    colors: [tint.opacity(0.55), tint],
+                                    startPoint: .leading,
+                                    endPoint: .trailing
+                                )
+                            )
+                            .frame(width: width)
+                    }
+                }
+                .frame(height: 12)
+            }
+
+            Text("Prediction is an explainable trend estimate from recent readings, not medical advice.")
+                .font(.caption2.weight(.semibold))
+                .foregroundStyle(.secondary)
+                .padding(.top, 2)
+        }
+        .padding(16)
+        .background(
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .fill(.background.opacity(0.94))
+                .shadow(color: tint.opacity(0.12), radius: 18, y: 10)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .stroke(tint.opacity(0.20), lineWidth: 1)
+        )
+    }
+}
+
 struct AppSurfaceBackground: View {
     var body: some View {
         ZStack {
@@ -348,6 +463,8 @@ struct StatusPill: View {
         Label(title, systemImage: icon)
             .font(.caption.weight(.black))
             .foregroundStyle(color)
+            .lineLimit(1)
+            .minimumScaleFactor(0.78)
             .padding(.horizontal, 11)
             .padding(.vertical, 7)
             .background(color.opacity(0.13), in: Capsule())
