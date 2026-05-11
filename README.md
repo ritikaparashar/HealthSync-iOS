@@ -2,7 +2,7 @@
 
 HealthSync is a SwiftUI iOS app that turns Apple HealthKit data into a polished, sync-ready health dashboard. It reads personal health metrics such as glucose, heart rate, steps, active energy, and body mass, estimates a recent glucose trend, then sends recent samples to a configurable backend API.
 
-Built by **Ritika Parashar** as a recruiter-facing iOS project focused on clean architecture, HealthKit integration, MVVM, background refresh, and thoughtful product design.
+Built by **Ritika Parashar** as an iOS project focused on clean architecture, HealthKit integration, MVVM, background refresh, and thoughtful product design.
 
 ![HealthSync dashboard](screenshots/dashboard.png)
 
@@ -82,7 +82,7 @@ The prediction is intentionally transparent:
 - **Likely stable** when recent readings change slowly.
 - **Unavailable** when there are not enough recent samples.
 
-The app also shows the sample count, confidence, and rationale behind the forecast. This keeps the feature interview-friendly because it demonstrates product thinking, data handling, and safety without pretending to replace clinical judgement.
+The app also shows the sample count, confidence, and rationale behind the forecast. This keeps the feature transparent, useful, and safety-conscious without pretending to replace clinical judgement.
 
 ## How Sync Works
 
@@ -116,7 +116,7 @@ No real API credentials are committed to this repository.
 
 ## Important Simulator Note
 
-The iOS Simulator does not provide real Apple Health data. HealthSync includes a simulator preview mode so recruiters and reviewers can still evaluate the UI, architecture, and flow without a physical device. Sync is intentionally disabled in preview mode to avoid uploading fake data.
+The iOS Simulator does not provide real Apple Health data. HealthSync includes a simulator preview mode so the UI, architecture, and flow can still be evaluated without a physical device. Sync is intentionally disabled in preview mode to avoid uploading fake data.
 
 ## What I Focused On
 
@@ -127,7 +127,7 @@ The iOS Simulator does not provide real Apple Health data. HealthSync includes a
 - Adding a transparent prediction layer without making unsafe medical claims.
 - Writing code that can be extended with testing, more metrics, charts, and secure storage.
 
-## Future Improvements
+## Possible Extensions
 
 - Add unit tests for `DashboardViewModel`.
 - Store API secrets in Keychain instead of UserDefaults.
