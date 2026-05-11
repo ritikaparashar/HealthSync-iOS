@@ -137,9 +137,6 @@ The iOS Simulator does not provide real Apple Health data. HealthSync includes a
 - Add protocol abstractions for easier service mocking.
 - Add Apple Watch support for companion health summaries.
 
-## Interview Summary
-
-> HealthSync is a SwiftUI + HealthKit app that reads personal health metrics, displays them in a custom dashboard, estimates glucose direction from recent readings, and syncs recent samples to a backend API. I built it with MVVM: the view renders state, the ViewModel coordinates presentation and actions, and dedicated managers handle HealthKit, prediction logic, and networking. I also added simulator-safe preview data, background refresh support, and a polished recruiter-facing UI.
 
 ## Disclaimer
 
